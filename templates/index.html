@@ -1,0 +1,375 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI News Poster — Premium News Template Generator</title>
+    <meta name="description" content="Automatically creates professional Instagram news posts using AI-powered content generation">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📰</text></svg>">
+</head>
+<body>
+    <div class="container">
+        <header class="header">
+            <!-- Decorative dot patterns (matching the template) -->
+            <div class="dot-pattern top-right"></div>
+            <div class="dot-pattern bottom-left"></div>
+
+            <h1><i class="fas fa-newspaper"></i> AI News Poster</h1>
+            <p class="subtitle">Auto-generating viral Instagram posts from trending news</p>
+
+            <div class="stats-container">
+                <div class="stat-card" id="stat-processed">
+                    <i class="fas fa-database"></i>
+                    <div>
+                        <h3>{{ stats.processed_count }}</h3>
+                        <p>Processed</p>
+                    </div>
+                </div>
+                <div class="stat-card" id="stat-pending">
+                    <i class="fas fa-hourglass-half"></i>
+                    <div>
+                        <h3>{{ stats.pending_count }}</h3>
+                        <p>In Queue</p>
+                    </div>
+                </div>
+                <div class="stat-card" id="stat-timer">
+                    <i class="fas fa-stopwatch"></i>
+                    <div>
+                        <h3 id="nextCheckTime">30:00</h3>
+                        <p>Next Check</p>
+                    </div>
+                </div>
+                <div class="stat-card" id="stat-batch">
+                    <i class="fas fa-layer-group"></i>
+                    <div>
+                        <h3>5</h3>
+                        <p>Per Batch</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="action-buttons">
+                <button class="btn-create" id="createBtn" onclick="createPosts()">
+                    <i class="fas fa-bolt"></i> Generate Posts
+                </button>
+                <button class="btn-secondary" onclick="refreshPage()">
+                    <i class="fas fa-redo"></i> Refresh
+                </button>
+            </div>
+        </header>
+
+        <div class="controls">
+            <div class="status" id="status">
+                <i class="fas fa-circle-notch fa-spin"></i> System Active — Auto-posting every 30 minutes
+            </div>
+            <div class="system-info">
+                <span><i class="fas fa-microchip"></i> Gemini 1.5 Flash</span>
+                <span><i class="fas fa-newspaper"></i> {{ config.CATEGORY|title }}</span>
+                <span><i class="fas fa-globe"></i> {{ config.COUNTRY|upper }}</span>
+            </div>
+        </div>
+
+        {% if posts %}
+        <div class="posts-header">
+            <h2><i class="fas fa-images"></i> Generated Posts</h2>
+            <p>{{ posts|length }} posts available</p>
+        </div>
+
+        <main class="posts-grid">
+            {% for post in posts %}
+            <div class="post-card">
+                <div class="post-image">
+                    <img src="{{ url_for('serve_post_image', filename=post.image_path.split('/')[-1]) }}" 
+                         alt="{{ post.article_title }}"
+                         loading="lazy">
+                    <div class="post-overlay">
+                        <span class="post-source">{{ post.source }}</span>
+                        <span class="post-date">{{ post.created_at.split('T')[0] }}</span>
+                    </div>
+                </div>
+                <div class="post-info">
+                    <h3 class="post-title">{{ post.article_title[:70] }}{% if post.article_title|length > 70 %}...{% endif %}</h3>
+                    <div class="post-actions">
+                        <button class="btn-action btn-caption" onclick="viewCaption('{{ post.caption|replace("\n", "\\n")|replace("'", "\\'")|replace('"', '\\"') }}')">
+                            <i class="fas fa-quote-right"></i> Caption
+                        </button>
+                        <button class="btn-action btn-download" onclick="downloadImage('{{ post.image_path.split("/")[-1] }}', '{{ post.article_title[:30] }}')">
+                            <i class="fas fa-download"></i> Save
+                        </button>
+                        <button class="btn-action btn-share" onclick="sharePost('{{ post.image_path.split("/")[-1] }}')">
+                            <i class="fas fa-share-alt"></i> Share
+                        </button>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </main>
+        {% else %}
+        <div class="empty-state">
+            <div class="empty-icon">
+                <i class="fas fa-newspaper fa-4x"></i>
+            </div>
+            <h2>No Posts Yet</h2>
+            <p>The system will auto-generate posts every 30 minutes</p>
+            <p class="empty-hint">Or generate manually by clicking the button below</p>
+            <button class="btn-create" onclick="createPosts()">
+                <i class="fas fa-bolt"></i> Generate First Posts
+            </button>
+        </div>
+        {% endif %}
+
+        <footer class="footer">
+            <div class="footer-content">
+                <div class="footer-section">
+                    <h4><i class="fas fa-info-circle"></i> How It Works</h4>
+                    <p>1. Fetches trending news every 30 min<br>
+                    2. Analyzes content with Gemini AI<br>
+                    3. Creates professional Instagram posts<br>
+                    4. Ready for download &amp; sharing</p>
+                </div>
+                <div class="footer-section">
+                    <h4><i class="fas fa-signal"></i> System Status</h4>
+                    <p>Last check: <span id="lastCheck">Just now</span><br>
+                    Next check: <span id="nextCheckFooter">30:00</span><br>
+                    Queue: <span id="queueSize">{{ stats.pending_count }}</span> items</p>
+                </div>
+                <div class="footer-section">
+                    <h4><i class="fas fa-sliders-h"></i> Controls</h4>
+                    <button class="btn-small" onclick="clearQueue()">
+                        <i class="fas fa-trash-alt"></i> Clear Queue
+                    </button>
+                    <button class="btn-small" onclick="viewLogs()">
+                        <i class="fas fa-terminal"></i> View Logs
+                    </button>
+                </div>
+            </div>
+            <div class="footer-bottom">
+                <p>AI News Poster &bull; Auto-generating since {{ posts[0].created_at.split('T')[0] if posts else 'today' }}</p>
+            </div>
+        </footer>
+    </div>
+
+    <!-- Caption Modal -->
+    <div id="captionModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3><i class="fas fa-quote-left"></i> Instagram Caption</h3>
+                <span class="close" onclick="closeModal()">&times;</span>
+            </div>
+            <div class="caption-content" id="captionContent"></div>
+            <div class="modal-footer">
+                <button class="btn-copy" onclick="copyCaption()">
+                    <i class="far fa-copy"></i> Copy
+                </button>
+                <button class="btn-close" onclick="closeModal()">
+                    <i class="fas fa-times"></i> Close
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast -->
+    <div id="toast" class="toast">
+        <div class="toast-content">
+            <i class="fas fa-check-circle"></i>
+            <span id="toastMessage">Operation successful!</span>
+        </div>
+    </div>
+
+    <script>
+        let timer = 30 * 60;
+
+        function formatTime(seconds) {
+            const minutes = Math.floor(seconds / 60);
+            const secs = seconds % 60;
+            return `${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+        }
+
+        function updateTimer() {
+            const nextCheck = document.getElementById('nextCheckTime');
+            const nextCheckFooter = document.getElementById('nextCheckFooter');
+            const timeStr = formatTime(timer);
+
+            if (nextCheck) nextCheck.textContent = timeStr;
+            if (nextCheckFooter) nextCheckFooter.textContent = timeStr;
+
+            if (timer > 0) {
+                timer--;
+            } else {
+                timer = 30 * 60;
+                refreshPage();
+            }
+        }
+
+        setInterval(updateTimer, 1000);
+        updateTimer();
+
+        function updateLastCheck() {
+            const now = new Date();
+            const timeStr = now.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+            document.getElementById('lastCheck').textContent = timeStr;
+        }
+
+        setInterval(updateLastCheck, 60000);
+        updateLastCheck();
+
+        async function createPosts() {
+            const status = document.getElementById('status');
+            const oldStatus = status.innerHTML;
+            
+            status.innerHTML = '<i class="fas fa-sync fa-spin"></i> Creating posts with AI...';
+            status.style.color = '#C62828';
+            
+            const btn = document.getElementById('createBtn');
+            const oldBtnText = btn.innerHTML;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Processing...';
+            btn.disabled = true;
+            
+            try {
+                const response = await fetch('/api/create-posts');
+                const data = await response.json();
+                
+                if (data.success) {
+                    showToast(`Created ${data.created} new posts!`);
+                    status.innerHTML = `<i class="fas fa-check-circle"></i> Created ${data.created} new posts!`;
+                    status.style.color = '#4CAF50';
+                    
+                    setTimeout(() => {
+                        window.location.reload();
+                    }, 2500);
+                } else {
+                    throw new Error('Failed to create posts');
+                }
+            } catch (error) {
+                showToast(`Error: ${error.message}`, 'error');
+                status.innerHTML = `<i class="fas fa-exclamation-triangle"></i> Error: ${error.message}`;
+                status.style.color = '#ef4444';
+                
+                setTimeout(() => {
+                    status.innerHTML = oldStatus;
+                    status.style.color = '';
+                }, 5000);
+            } finally {
+                btn.innerHTML = oldBtnText;
+                btn.disabled = false;
+            }
+        }
+
+        function refreshPage() {
+            window.location.reload();
+        }
+
+        async function clearQueue() {
+            if (confirm('Clear the pending news queue?')) {
+                try {
+                    const response = await fetch('/api/clear-pending');
+                    const data = await response.json();
+                    
+                    if (data.success) {
+                        showToast('Queue cleared');
+                        document.getElementById('queueSize').textContent = '0';
+                    }
+                } catch (error) {
+                    showToast('Error clearing queue', 'error');
+                }
+            }
+        }
+
+        function viewCaption(caption) {
+            const modal = document.getElementById('captionModal');
+            const content = document.getElementById('captionContent');
+            
+            let formattedCaption = caption
+                .replace(/\\n/g, '\n')
+                .replace(/\\'/g, "'")
+                .replace(/\\"/g, '"');
+            
+            content.textContent = formattedCaption;
+            modal.style.display = 'flex';
+        }
+
+        function closeModal() {
+            document.getElementById('captionModal').style.display = 'none';
+        }
+
+        async function copyCaption() {
+            const caption = document.getElementById('captionContent').textContent;
+            try {
+                await navigator.clipboard.writeText(caption);
+                showToast('Caption copied!');
+            } catch (err) {
+                showToast('Failed to copy', 'error');
+            }
+        }
+
+        function downloadImage(filename, title) {
+            const link = document.createElement('a');
+            link.href = `/post/${filename}`;
+            link.download = `${title || 'post'}_${Date.now()}.jpg`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            showToast('Download started');
+        }
+
+        function sharePost(filename) {
+            const url = `${window.location.origin}/post/${filename}`;
+            if (navigator.share) {
+                navigator.share({
+                    title: 'AI News Post',
+                    text: 'Created by AI News Poster',
+                    url: url,
+                });
+            } else {
+                navigator.clipboard.writeText(url);
+                showToast('Link copied!');
+            }
+        }
+
+        function showToast(message, type = 'success') {
+            const toast = document.getElementById('toast');
+            const toastMessage = document.getElementById('toastMessage');
+            
+            toastMessage.textContent = message;
+            toast.className = `toast ${type}`;
+            toast.style.display = 'block';
+            
+            setTimeout(() => {
+                toast.style.display = 'none';
+            }, 3000);
+        }
+
+        function viewLogs() {
+            showToast('Logs feature coming soon', 'info');
+        }
+
+        window.onclick = function(event) {
+            const modal = document.getElementById('captionModal');
+            if (event.target == modal) {
+                closeModal();
+            }
+        }
+
+        // Background stats polling
+        setInterval(() => {
+            fetch('/api/stats')
+                .then(response => response.json())
+                .then(data => {
+                    document.getElementById('queueSize').textContent = data.pending_count;
+                })
+                .catch(() => {});
+        }, 5 * 60 * 1000);
+
+        // Smooth page load
+        document.addEventListener('DOMContentLoaded', () => {
+            document.body.style.opacity = '0';
+            document.body.style.transition = 'opacity 0.4s ease';
+            setTimeout(() => {
+                document.body.style.opacity = '1';
+            }, 50);
+        });
+    </script>
+</body>
+</html>
